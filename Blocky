@@ -1,0 +1,12 @@
+# BLOCKY
+Operating System: Linux
+Difficulty: Easy
+
+
+## SUMMARY:
+
+
+## STEP #1: Port Scanning
+**TCP Scan**: `sudo nmap -Pn -n X.X.X.X -sC -sV -sT -p- --open`
+
+**UDP Scan**: `nmap -v -sU -T4 -Pn --top-ports 100 X.X.X.X`
