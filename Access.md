@@ -79,4 +79,4 @@ When we find credentials stored in the credential manager, we can attempt to use
 We were able to successfully achieve a shell as the local administrator and obtain the root flag (_root.txt_) found at _C:\Users\Administrator\Desktop_.  
 
 
-_While this scenarion demonstrated a very simple and straightforward privilege escalation path, we would normally have run winpeas to perform a thorough internal enumeration and detect attack vectors we can pursue._
+_While this scenario demonstrated a very simple and straightforward privilege escalation path, we would normally have run winpeas to perform a thorough internal enumeration and detect attack vectors we can pursue._
